@@ -2,8 +2,10 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Merry Christmas · 3D Rotating Tree</title>
+<!-- 引入 Google 的免费网络花体字 -->
+<link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600&family=Great+Vibes&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box}
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000}
@@ -16,7 +18,11 @@ canvas{display:block;width:100vw;height:100vh;background:#000}
 button{padding:6px 10px;border:1px solid #ffffff40;border-radius:6px;background:#18364b;color:#fff;cursor:pointer}
 button:hover{background:#28536d}
 .note{position:fixed;right:12px;bottom:9px;color:#ffffff80;font:11px system-ui,sans-serif}
-@media(max-width:560px){.tools{left:7px;right:7px;top:7px;gap:6px}.tools input[type=text]{width:75px}.note{display:none}}
+@media(max-width:560px){
+  .tools{left:7px;right:7px;top:7px;gap:6px}
+  .tools input[type=text]{width:75px}
+  .note{display:none}
+}
 </style>
 </head>
 <body>
@@ -31,15 +37,35 @@ button:hover{background:#28536d}
 <script>
 (() => {
 "use strict";
-const WIDTH=1600,HEIGHT=900,TREE_POINTS=50000,GROUND_POINTS=4000,STAR_POINTS=1200,HEART_POINTS=1000,SNOW_COUNT=10;
+let WIDTH, HEIGHT;
+const TREE_POINTS=50000,GROUND_POINTS=4000,STAR_POINTS=1200,HEART_POINTS=1000,SNOW_COUNT=10;
 const CAM_DIST=13,CAM_HEIGHT=6,PITCH=-.25,TREE_HEIGHT=12,TAU=Math.PI*2;
 const canvas=document.getElementById("screen"),ctx=canvas.getContext("2d",{alpha:false});
 let dpr=1,paused=false,speed=1,angle=0,lastTime=0;
-function resize(){dpr=Math.min(window.devicePixelRatio||1,1.5);canvas.width=Math.round(innerWidth*dpr);canvas.height=Math.round(innerHeight*dpr);}
-addEventListener("resize",resize);resize();
+
+function resize(){
+  dpr=Math.min(window.devicePixelRatio||1, 1.5);
+  WIDTH=window.innerWidth;
+  HEIGHT=window.innerHeight;
+  canvas.width=Math.round(WIDTH*dpr);
+  canvas.height=Math.round(HEIGHT*dpr);
+  
+  if (typeof snow !== 'undefined') {
+    snow.length = 0;
+    for(let i=0;i<SNOW_COUNT;i++){
+      const f=newFlake();
+      f[1]=rand(-80,HEIGHT);
+      f[4]=rand(0,f[5]);
+      snow.push(f);
+    }
+  }
+}
+addEventListener("resize",resize);
+
 const rand=(a,b)=>a+Math.random()*(b-a),ri=(a,b)=>Math.floor(rand(a,b+1));
 function gaussian(mean,sd){let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();return mean+sd*Math.sqrt(-2*Math.log(u))*Math.cos(TAU*v);}
 const tree=[],ground=[],stars=[],heart=[];
+
 function genTree(){
  const spiralN=Math.floor(TREE_POINTS*.7),loops=9;
  for(let i=0;i<spiralN;i++){
@@ -48,7 +74,6 @@ function genTree(){
   baseR*=1+.65*Math.max(0,Math.sin((h*5.8+.15)*TAU));
   const a=u*loops*TAU+rand(-.22,.22),r=baseR*rand(.85,1.08);
   const mid=Math.max(.15,1-Math.abs(h-.55)*1.5);
-  // 浅蓝色树体
   const color=[
     Math.min(255,120+Math.floor(60*mid)+ri(-15,20)),
     Math.min(255,190+Math.floor(45*mid)+ri(-10,20)),
@@ -62,7 +87,6 @@ function genTree(){
   let baseR=Math.pow(1-h,1.1)*4.3;
   baseR*=1+.65*Math.max(0,Math.sin((h*5.8+.15)*TAU));
   const r=baseR*Math.sqrt(Math.random()),a=Math.random()*TAU;
-  // 浅蓝色填充
   tree.push([Math.cos(a)*r+rand(-.08,.08),y,Math.sin(a)*r+rand(-.08,.08),[ri(120,180),ri(195,235),ri(245,255)]]);
  }
 }
@@ -90,12 +114,13 @@ function newFlake(y=rand(-80,-10)){
  const r=rand(10,16),v=rand(30,45),max=(HEIGHT+80-y)/v;
  return [rand(0,WIDTH),y,r,v,max,max];
 }
-for(let i=0;i<SNOW_COUNT;i++){const f=newFlake();f[1]=rand(-80,HEIGHT);f[4]=rand(0,f[5]);snow.push(f);}
+resize(); 
+
 function project(p){
  const ca=Math.cos(angle),sa=Math.sin(angle),xz=p[0]*ca-p[2]*sa,zz=p[0]*sa+p[2]*ca;
  const cp=Math.cos(PITCH),sp=Math.sin(PITCH),yp=p[1]*cp-zz*sp,zp=p[1]*sp+zz*cp+CAM_DIST;
  const y2=yp-CAM_HEIGHT;if(zp<=.1)return null;
- const f=(HEIGHT*.63)/zp;
+ const f=(Math.max(WIDTH,HEIGHT)*0.63)/zp; 
  return [WIDTH/2+xz*f,HEIGHT/2-y2*f,zp];
 }
 function drawSnow(dt){
@@ -112,14 +137,36 @@ function drawSnow(dt){
 function render(t){
  const dt=Math.min(.05,(t-lastTime)/1000||0);lastTime=t;
  if(!paused)angle+=.0045*speed*(dt*60||1);
- ctx.setTransform(canvas.width/WIDTH,0,0,canvas.height/HEIGHT,0,0);
+ 
+ ctx.setTransform(dpr,0,0,dpr,0,0);
  ctx.fillStyle="#000";ctx.fillRect(0,0,WIDTH,HEIGHT);
+ 
  const draw=[];
- for(const p of all){const q=project(p);if(!q)continue;const [x,y,depth]=q;if(x<0||x>=WIDTH||y<0||y>=HEIGHT)continue;draw.push([depth,x,y,Math.max(1,Math.floor(3.6-depth*.13)),p[3]]);}
+ for(const p of all){
+  const q=project(p);
+  if(!q)continue;
+  const [x,y,depth]=q;
+  if(x<0||x>=WIDTH||y<0||y>=HEIGHT)continue;
+  draw.push([depth,x,y,Math.max(1,Math.floor(3.6-depth*.13)),p[3]]);
+ }
  draw.sort((a,b)=>b[0]-a[0]);
- for(const item of draw){const [,x,y,r,c]=item;ctx.fillStyle=`rgb(${c[0]},${c[1]},${c[2]})`;ctx.beginPath();ctx.arc(x,y,r,0,TAU);ctx.fill();}
- ctx.fillStyle="#fff";ctx.textAlign="left";ctx.font='45px "Monotype Corsiva","Segoe Script","Comic Sans MS",cursive';ctx.fillText("Merry Christmas",40,HEIGHT/3+38);
- ctx.fillText(document.getElementById("name").value,40,HEIGHT/3+38+58);
+ for(const item of draw){
+  const [,x,y,r,c]=item;
+  ctx.fillStyle=`rgb(${c[0]},${c[1]},${c[2]})`;
+  ctx.beginPath();ctx.arc(x,y,r,0,TAU);ctx.fill();
+ }
+ 
+ const fontSize = Math.max(24, Math.min(WIDTH * 0.06, 45));
+ ctx.fillStyle="#fff";
+ ctx.textAlign="left";
+ // 使用新引入的网络字体，如果加载不到再用后备字体
+ ctx.font=`600 ${fontSize}px "Dancing Script", "Great Vibes", "Monotype Corsiva", cursive`;
+ const startY = HEIGHT * 0.25;
+ ctx.fillText("Merry Christmas", 20, startY);
+ 
+ ctx.font=`600 ${fontSize * 0.9}px "Dancing Script", "Great Vibes", "Monotype Corsiva", cursive`;
+ ctx.fillText(document.getElementById("name").value, 20, startY + fontSize + 10);
+ 
  drawSnow(dt);
  requestAnimationFrame(render);
 }
